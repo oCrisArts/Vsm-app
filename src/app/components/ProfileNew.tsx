@@ -4,7 +4,7 @@ import { Trophy, TrendingUp, Settings, LogOut, ChevronRight, Star, Target, Camer
 import { Card, CardContent } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine, Area, AreaChart } from 'recharts';
 
-interface ProfileNewProps { onClose?: () => void; }
+interface ProfileNewProps { onClose?: () => void; onLogout?: () => void; }
 
 const VSM_PILLARS = [
   { icon: Dumbbell, label: 'Shape', desc: 'Presença física e energia vital', contribution: 28, color: '#FF8C42' },
@@ -34,7 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export function ProfileNew({ onClose }: ProfileNewProps) {
+export function ProfileNew({ onClose, onLogout }: ProfileNewProps) {
   const [avatarHover, setAvatarHover] = useState(false);
   const [showVSMCard, setShowVSMCard] = useState(false);
 
@@ -47,11 +47,11 @@ export function ProfileNew({ onClose }: ProfileNewProps) {
     { id: 4, title: 'Imparável', unlocked: false },
   ];
 
-  const menuItems = [
-    { icon: Target, label: 'Metas e Objetivos', description: 'Configure suas metas pessoais' },
-    { icon: Star, label: 'Plano Premium', description: 'Gerencie sua assinatura' },
-    { icon: Settings, label: 'Configurações', description: 'Preferências do aplicativo' },
-    { icon: LogOut, label: 'Sair', description: 'Encerrar sessão', danger: true },
+  const menuItems: { icon: typeof Target; label: string; description: string; danger?: boolean; action?: () => void }[] = [
+    { icon: Target,   label: 'Metas e Objetivos', description: 'Configure suas metas pessoais' },
+    { icon: Star,     label: 'Plano Premium',      description: 'Gerencie sua assinatura'       },
+    { icon: Settings, label: 'Configurações',       description: 'Preferências do aplicativo'   },
+    { icon: LogOut,   label: 'Sair',               description: 'Encerrar sessão', danger: true, action: onLogout },
   ];
 
   return (
@@ -257,7 +257,7 @@ export function ProfileNew({ onClose }: ProfileNewProps) {
             const Icon = item.icon;
             return (
               <div key={item.label}>
-                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors text-left">
+                <button onClick={item.action} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors text-left">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: item.danger ? '#FF6B6B20' : '#4169FF15' }}>
                     <Icon size={18} className={item.danger ? 'text-[#FF6B6B]' : 'text-[#4169FF]'} />

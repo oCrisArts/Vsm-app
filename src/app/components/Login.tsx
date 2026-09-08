@@ -3,32 +3,40 @@ import { motion } from 'motion/react';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
+import type { Role } from '../context/AuthContext';
+
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (role: Role) => void;
+  onTryLogin: (email: string, password: string) => Promise<{ success: boolean; role?: Role; error?: string }>;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, onTryLogin }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
-    if ((email.toLowerCase() === 'joão' || email.toLowerCase() === 'joao') && password.toLowerCase() === 'joão' || password.toLowerCase() === 'joao') {
-      setLoading(true);
-      setTimeout(() => { setLoading(false); onLogin(); }, 900);
-      return;
-    }
-    if (!email) { setError('Preencha seu e-mail ou usuário.'); return; }
+    if (!email) { setError('Preencha seu e-mail.'); return; }
     if (!password) { setError('Preencha sua senha.'); return; }
-    setError('Credenciais inválidas. Tente: usuário "joão" senha "joão".');
+    setLoading(true);
+    const result = await onTryLogin(email, password);
+    setLoading(false);
+    if (result.success && result.role) {
+      onLogin(result.role);
+    } else {
+      setError(result.error ?? 'Credenciais inválidas.');
+    }
   };
 
-  const handleSocial = () => {
+  const handleSocial = async () => {
     setLoading(true);
-    setTimeout(() => { setLoading(false); onLogin(); }, 700);
+    const result = await onTryLogin('demo@vsm.app', 'demo1234');
+    setLoading(false);
+    if (result.success && result.role) onLogin(result.role);
+    else setError(result.error ?? 'Conta demo indisponível.');
   };
 
   return (
@@ -146,7 +154,7 @@ export function Login({ onLogin }: LoginProps) {
 
           {/* Hint */}
           <p className="text-[#444] text-xs text-center" style={{ fontWeight: 600 }}>
-            Teste: usuário <span className="text-[#4169FF]">joão</span> · senha <span className="text-[#4169FF]">joão</span>
+            Demo: <span className="text-[#4169FF]">demo@vsm.app / demo1234</span>
           </p>
 
           {/* CTA */}
