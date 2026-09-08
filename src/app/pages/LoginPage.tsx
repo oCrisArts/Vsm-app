@@ -14,8 +14,7 @@ export function LoginPage() {
 
   const handleLogin = (role: 'student' | 'admin') => {
     if (role === 'admin') navigate('/admin/comunidade');
-    else if (user?.onboardingDone) navigate('/app/iniciar');
-    else navigate('/onboarding');
+    else navigate('/app/iniciar'); // StudentShell redirects to /onboarding if needed
   };
 
   const handleTryLogin = async (email: string, password: string) => {

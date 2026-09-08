@@ -89,6 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!data.session) return { success: false, error: 'Sessão não iniciada.' };
     const profile = await fetchProfile(data.session.user.id);
     if (!profile) return { success: false, error: 'Perfil não encontrado.' };
+    // Set state eagerly so navigation in the caller finds user already populated,
+    // avoiding the race with onAuthStateChange which fires asynchronously.
+    setSession(data.session);
+    setUser(profile);
+    const enrolled = await fetchEnrollments(data.session.user.id);
+    setEnrolledCourses(enrolled);
     return { success: true, role: profile.role };
   }, []);
 

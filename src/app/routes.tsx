@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { StudentShell }       from './layouts/StudentShell';
 import { AdminShell }         from './layouts/AdminShell';
 
+import { LandingPage }        from './pages/LandingPage';
 import { LoginPage }          from './pages/LoginPage';
 import { CadastroPage }       from './pages/CadastroPage';
 import { OnboardingPage }     from './pages/OnboardingPage';
@@ -25,7 +26,7 @@ import { AdminConsultarPage } from './pages/admin/AdminConsultarPage';
 
 export const router = createBrowserRouter([
   /* ── public ── */
-  { path: '/',        element: <Navigate to="/login" replace /> },
+  { path: '/',        element: <LandingPage /> },
   { path: '/login',   element: <LoginPage /> },
   { path: '/cadastro',element: <CadastroPage /> },
   { path: '/onboarding', element: <OnboardingPage /> },
