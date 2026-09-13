@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Login } from '../components/Login';
 
 export function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, loginWithGoogle, loginWithFacebook } = useAuth();
   const navigate = useNavigate();
 
   if (user) {
@@ -21,9 +21,27 @@ export function LoginPage() {
     return login(email, password);
   };
 
+  const handleTryGoogleLogin = async () => {
+    const result = await loginWithGoogle();
+    if (result.success) {
+      // OAuth will redirect the browser, so we don't need to do anything here
+      // The OAuthCallbackPage will handle the redirect back
+    }
+    return result;
+  };
+
+  const handleTryFacebookLogin = async () => {
+    const result = await loginWithFacebook();
+    if (result.success) {
+      // OAuth will redirect the browser, so we don't need to do anything here
+      // The OAuthCallbackPage will handle the redirect back
+    }
+    return result;
+  };
+
   return (
     <div className="min-h-screen bg-black dark">
-      <Login onLogin={handleLogin} onTryLogin={handleTryLogin} />
+      <Login onLogin={handleLogin} onTryLogin={handleTryLogin} onTryGoogleLogin={handleTryGoogleLogin} onTryFacebookLogin={handleTryFacebookLogin} />
     </div>
   );
 }

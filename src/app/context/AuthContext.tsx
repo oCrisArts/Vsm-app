@@ -18,6 +18,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   login: (email: string, password: string) => Promise<{ success: boolean; role?: Role; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; role?: Role; error?: string }>;
+  loginWithFacebook: () => Promise<{ success: boolean; role?: Role; error?: string }>;
   register: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   markOnboardingDone: () => Promise<void>;
@@ -59,7 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserData = useCallback(async (s: Session) => {
     setSession(s);
-    const profile = await fetchProfile(s.user.id);
+    let profile = await fetchProfile(s.user.id);
+    
+    // Create profile if it doesn't exist (for social logins)
+    if (!profile) {
+      const { error: insertError } = await supabase.from('profiles').upsert({
+        id: s.user.id,
+        email: s.user.email || '',
+        display_name: s.user.user_metadata?.full_name || s.user.email?.split('@')[0] || 'Usuário',
+        role: 'student',
+        onboarding_done: false,
+        vsm_score: 0,
+        vsm_level: 1,
+      }, { onConflict: 'id' });
+      
+      if (!insertError) {
+        profile = await fetchProfile(s.user.id);
+      }
+    }
+    
     setUser(profile);
     const enrolled = await fetchEnrollments(s.user.id);
     setEnrolledCourses(enrolled);
@@ -96,6 +116,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const enrolled = await fetchEnrollments(data.session.user.id);
     setEnrolledCourses(enrolled);
     return { success: true, role: profile.role };
+  }, []);
+
+  const loginWithGoogle = useCallback(async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/login/callback`,
+        skipBrowserRedirect: false
+      }
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  }, []);
+
+  const loginWithFacebook = useCallback(async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/login/callback`,
+        skipBrowserRedirect: false
+      }
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   }, []);
 
   const register = useCallback(async (email: string, password: string, displayName: string) => {
@@ -147,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, session, login, register, logout, markOnboardingDone, enrolledCourses, enrollCourse }}>
+    <AuthContext.Provider value={{ user, session, login, loginWithGoogle, loginWithFacebook, register, logout, markOnboardingDone, enrolledCourses, enrollCourse }}>
       {children}
     </AuthContext.Provider>
   );

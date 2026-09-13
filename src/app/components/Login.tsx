@@ -8,9 +8,11 @@ import type { Role } from '../context/AuthContext';
 interface LoginProps {
   onLogin: (role: Role) => void;
   onTryLogin: (email: string, password: string) => Promise<{ success: boolean; role?: Role; error?: string }>;
+  onTryGoogleLogin: () => Promise<{ success: boolean; role?: Role; error?: string }>;
+  onTryFacebookLogin: () => Promise<{ success: boolean; role?: Role; error?: string }>;
 }
 
-export function Login({ onLogin, onTryLogin }: LoginProps) {
+export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogin }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -31,12 +33,26 @@ export function Login({ onLogin, onTryLogin }: LoginProps) {
     }
   };
 
-  const handleSocial = async () => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
-    const result = await onTryLogin('demo@vsm.app', 'demo1234');
+    const result = await onTryGoogleLogin();
     setLoading(false);
-    if (result.success && result.role) onLogin(result.role);
-    else setError(result.error ?? 'Conta demo indisponível.');
+    if (result.success) {
+      // OAuth redirect will handle the rest
+    } else {
+      setError(result.error ?? 'Erro ao fazer login com Google.');
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    setLoading(true);
+    const result = await onTryFacebookLogin();
+    setLoading(false);
+    if (result.success) {
+      // OAuth redirect will handle the rest
+    } else {
+      setError(result.error ?? 'Erro ao fazer login com Facebook.');
+    }
   };
 
   return (
@@ -78,8 +94,9 @@ export function Login({ onLogin, onTryLogin }: LoginProps) {
         >
           {/* Social logins */}
           <button
-            onClick={handleSocial}
-            className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl transition-opacity hover:opacity-90"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ fontWeight: 800 }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24">
@@ -92,8 +109,9 @@ export function Login({ onLogin, onTryLogin }: LoginProps) {
           </button>
 
           <button
-            onClick={handleSocial}
-            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white py-4 rounded-2xl transition-opacity hover:opacity-90"
+            onClick={handleFacebookLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white py-4 rounded-2xl transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ fontWeight: 800 }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
@@ -151,11 +169,6 @@ export function Login({ onLogin, onTryLogin }: LoginProps) {
               <p className="text-red-400 text-xs" style={{ fontWeight: 600 }}>{error}</p>
             </motion.div>
           )}
-
-          {/* Hint */}
-          <p className="text-[#444] text-xs text-center" style={{ fontWeight: 600 }}>
-            Demo: <span className="text-[#4169FF]">demo@vsm.app / demo1234</span>
-          </p>
 
           {/* CTA */}
           <button
