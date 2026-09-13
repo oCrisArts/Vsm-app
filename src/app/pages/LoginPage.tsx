@@ -25,7 +25,7 @@ export function LoginPage() {
     const result = await loginWithGoogle();
     if (result.success) {
       // OAuth will redirect the browser, so we don't need to do anything here
-      // The OAuthCallbackPage will handle the redirect back
+      // Supabase will redirect back to /login and AuthContext will recover the session
     }
     return result;
   };
@@ -34,7 +34,7 @@ export function LoginPage() {
     const result = await loginWithFacebook();
     if (result.success) {
       // OAuth will redirect the browser, so we don't need to do anything here
-      // The OAuthCallbackPage will handle the redirect back
+      // Supabase will redirect back to /login and AuthContext will recover the session
     }
     return result;
   };
