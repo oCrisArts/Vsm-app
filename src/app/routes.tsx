@@ -20,8 +20,8 @@ import { ConectarPage }       from './pages/student/ConectarPage';
 import { ConsultarPage }      from './pages/student/ConsultarPage';
 import { PerfilPage }         from './pages/student/PerfilPage';
 
-import { ComunidadePage }     from './pages/admin/ComunidadePage';
-import { EnsinoPage }         from './pages/admin/EnsinoPage';
+import { ComunidadeAdminPage } from './pages/admin/ComunidadeAdminPage';
+import { EnsinoAdminPage }     from './pages/admin/EnsinoAdminPage';
 import { AdminEvoluirPage }   from './pages/admin/AdminEvoluirPage';
 import { AdminConectarPage }  from './pages/admin/AdminConectarPage';
 import { AdminConsultarPage } from './pages/admin/AdminConsultarPage';
@@ -66,8 +66,8 @@ export const router = createBrowserRouter([
     element: <RequireAuth><AdminShell /></RequireAuth>,
     children: [
       { index: true,           element: <Navigate to="/admin/comunidade" replace /> },
-      { path: 'comunidade',    element: <ComunidadePage />    },
-      { path: 'ensinar',       element: <EnsinoPage />        },
+      { path: 'comunidade',    element: <ComunidadeAdminPage /> },
+      { path: 'ensinar',       element: <EnsinoAdminPage />     },
       { path: 'evoluir',       element: <AdminEvoluirPage />  },
       { path: 'conectar',      element: <AdminConectarPage /> },
       { path: 'consultar',     element: <AdminConsultarPage />},

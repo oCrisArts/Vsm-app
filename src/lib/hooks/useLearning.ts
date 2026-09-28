@@ -5,6 +5,14 @@ import type { Course, Enrollment, Lesson, LessonBlock, Module, Quiz, QuizQuestio
 export type LearningCourse = Course & { modules: Array<Module & { lessons: Lesson[] }> };
 export type LearningQuiz = Quiz & { quiz_questions: QuizQuestion[] };
 
+const isRemoteUrl = (value: string | null | undefined) => Boolean(value && /^https?:\/\//i.test(value));
+
+async function signedAssetUrl(bucket: 'course-covers' | 'lesson-media', value: string | null) {
+  if (!value || isRemoteUrl(value)) return value;
+  const result = await supabase.storage.from(bucket).createSignedUrl(value, 3600);
+  return result.data?.signedUrl ?? null;
+}
+
 export function useCourses(includeUnpublished = false) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +26,11 @@ export function useCourses(includeUnpublished = false) {
       if (!includeUnpublished) query = query.eq('is_published', true);
       const result = await query;
       if (!active) return;
-      setCourses((result.data ?? []) as Course[]);
+      const values = (result.data ?? []) as Course[];
+      setCourses(await Promise.all(values.map(async course => ({
+        ...course,
+        image_url: await signedAssetUrl('course-covers', course.image_url),
+      }))));
       setError(result.error?.message ?? null);
       setLoading(false);
     };
@@ -49,6 +61,7 @@ export function useCourseDetail(slug: string | null) {
       if (value) {
         value.modules.sort((a, b) => a.order_index - b.order_index);
         value.modules.forEach(module => module.lessons.sort((a, b) => a.order_index - b.order_index));
+        value.image_url = await signedAssetUrl('course-covers', value.image_url);
       }
       setCourse(value);
       setError(result.error?.message ?? null);
@@ -83,7 +96,10 @@ export function useLessonContent(lessonId: string | null) {
       if (!active) return;
       const firstError = lessonResult.error ?? blockResult.error ?? quizResult.error;
       setLesson((lessonResult.data as Lesson | null) ?? null);
-      setBlocks((blockResult.data ?? []) as LessonBlock[]);
+      setBlocks(await Promise.all(((blockResult.data ?? []) as LessonBlock[]).map(async block => ({
+        ...block,
+        media_url: await signedAssetUrl('lesson-media', block.media_url),
+      }))));
       setQuizzes((quizResult.data ?? []) as LearningQuiz[]);
       setError(firstError?.message ?? null);
       setLoading(false);
