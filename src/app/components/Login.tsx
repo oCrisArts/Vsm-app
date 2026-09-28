@@ -4,54 +4,64 @@ import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 import type { Role } from '../context/AuthContext';
+import { PASSWORD_MIN_LENGTH, PASSWORD_ERROR } from '../../lib/authValidation';
 
 interface LoginProps {
-  onLogin: (role: Role) => void;
+  authLoading: boolean;
+  authError: string | null;
+  onTryRegister: (email: string, password: string) => Promise<{ success: boolean; needsEmailConfirmation?: boolean; error?: string }>;
   onTryLogin: (email: string, password: string) => Promise<{ success: boolean; role?: Role; error?: string }>;
   onTryGoogleLogin: () => Promise<{ success: boolean; role?: Role; error?: string }>;
   onTryFacebookLogin: () => Promise<{ success: boolean; role?: Role; error?: string }>;
 }
 
-export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogin }: LoginProps) {
+export function Login({ authLoading, authError, onTryRegister, onTryLogin, onTryGoogleLogin, onTryFacebookLogin }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [message, setMessage] = useState('');
+  const busy = loading || authLoading;
+
   const handleLogin = async () => {
+    if (busy) return;
     setError('');
-    if (!email) { setError('Preencha seu e-mail.'); return; }
-    if (!password) { setError('Preencha sua senha.'); return; }
+    setMessage('');
+    if (!email.trim()) { setError('Preencha seu e-mail.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Informe um e-mail válido.'); return; }
+    if (password.length < PASSWORD_MIN_LENGTH) { setError(PASSWORD_ERROR); return; }
     setLoading(true);
-    const result = await onTryLogin(email, password);
-    setLoading(false);
-    if (result.success && result.role) {
-      onLogin(result.role);
-    } else {
-      setError(result.error ?? 'Credenciais inválidas.');
+    try {
+      if (mode === 'signup') {
+        const result = await onTryRegister(email.trim(), password);
+        if (!result.success) setError(result.error ?? 'Erro ao criar conta.');
+        else if (result.needsEmailConfirmation) setMessage('Confira seu e-mail para confirmar sua conta antes de entrar.');
+      } else {
+        const result = await onTryLogin(email.trim(), password);
+        if (!result.success) setError(result.error ?? 'Credenciais inválidas.');
+      }
+    } catch {
+      setError('Não foi possível concluir. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (provider: 'google' | 'facebook') => {
+    if (busy) return;
+    setError('');
+    setMessage('');
     setLoading(true);
-    const result = await onTryGoogleLogin();
-    setLoading(false);
-    if (result.success) {
-      // OAuth redirect will handle the rest
-    } else {
-      setError(result.error ?? 'Erro ao fazer login com Google.');
-    }
-  };
-
-  const handleFacebookLogin = async () => {
-    setLoading(true);
-    const result = await onTryFacebookLogin();
-    setLoading(false);
-    if (result.success) {
-      // OAuth redirect will handle the rest
-    } else {
-      setError(result.error ?? 'Erro ao fazer login com Facebook.');
+    try {
+      const result = await (provider === 'google' ? onTryGoogleLogin() : onTryFacebookLogin());
+      if (!result.success) setError(result.error ?? 'Erro ao fazer login.');
+    } catch {
+      setError('Não foi possível concluir. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,8 +104,8 @@ export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogi
         >
           {/* Social logins */}
           <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
+            onClick={() => handleSocialLogin('google')}
+            disabled={busy}
             className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ fontWeight: 800 }}
           >
@@ -109,8 +119,8 @@ export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogi
           </button>
 
           <button
-            onClick={handleFacebookLogin}
-            disabled={loading}
+            onClick={() => handleSocialLogin('facebook')}
+            disabled={busy}
             className="w-full flex items-center justify-center gap-3 bg-[#1877F2] text-white py-4 rounded-2xl transition-opacity hover:opacity-90 disabled:opacity-60"
             style={{ fontWeight: 800 }}
           >
@@ -130,8 +140,11 @@ export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogi
           {/* Email */}
           <div>
             <input
-              type="text"
-              placeholder="Usuário ou e-mail"
+              type="email"
+              autoComplete="email"
+              aria-label="E-mail"
+              disabled={busy}
+              placeholder="E-mail"
               value={email}
               onChange={e => setEmail(e.target.value)}
               className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#1A1A1A] rounded-2xl text-white placeholder-[#444] focus:border-[#4169FF] focus:outline-none transition-colors"
@@ -143,7 +156,11 @@ export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogi
           <div className="relative">
             <input
               type={showPass ? 'text' : 'password'}
-              placeholder="Senha"
+              placeholder={`Senha (mínimo ${PASSWORD_MIN_LENGTH} caracteres)`}
+              minLength={PASSWORD_MIN_LENGTH}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              aria-label="Senha"
+              disabled={busy}
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
@@ -159,31 +176,42 @@ export function Login({ onLogin, onTryLogin, onTryGoogleLogin, onTryFacebookLogi
           </div>
 
           {/* Error */}
-          {error && (
+          {(error || authError) && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/30 rounded-xl"
             >
               <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
-              <p className="text-red-400 text-xs" style={{ fontWeight: 600 }}>{error}</p>
+              <p className="text-red-400 text-xs" style={{ fontWeight: 600 }}>{error || authError}</p>
             </motion.div>
           )}
+
+          {message && <p role="status" className="text-center text-[#999] text-xs" style={{ fontWeight: 600 }}>{message}</p>}
 
           {/* CTA */}
           <button
             onClick={handleLogin}
-            disabled={loading}
+            disabled={busy}
             className="w-full py-4 bg-[#4169FF] text-white rounded-2xl text-base transition-all hover:bg-[#5B7FFF] disabled:opacity-60 flex items-center justify-center gap-2"
             style={{ fontWeight: 900 }}
           >
-            {loading ? (
+            {busy ? (
               <span className="inline-block w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-            ) : 'ENTRAR'}
+            ) : mode === 'login' ? 'ENTRAR' : 'CRIAR CONTA'}
           </button>
 
+          <p className="text-center text-[#999] text-xs" style={{ fontWeight: 600 }}>
+            {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
+            <button disabled={busy} className="text-[#4169FF]" onClick={() => {
+              setMode(mode === 'login' ? 'signup' : 'login');
+              setError('');
+              setMessage('');
+            }}>{mode === 'login' ? 'Criar conta' : 'Entrar'}</button>
+          </p>
+
           <p className="text-center text-[#444] text-xs" style={{ fontWeight: 600 }}>
-            Ao entrar você concorda com os{' '}
+            Ao {mode === 'login' ? 'entrar' : 'criar uma conta'} você concorda com os{' '}
             <span className="text-[#4169FF]">Termos de Uso</span>
           </p>
         </motion.div>

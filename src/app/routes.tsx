@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import { useAuth } from './context/AuthContext';
 import { createBrowserRouter, Navigate } from 'react-router';
 
 import { StudentShell }       from './layouts/StudentShell';
@@ -24,17 +26,24 @@ import { AdminEvoluirPage }   from './pages/admin/AdminEvoluirPage';
 import { AdminConectarPage }  from './pages/admin/AdminConectarPage';
 import { AdminConsultarPage } from './pages/admin/AdminConsultarPage';
 
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, authLoading } = useAuth();
+  if (authLoading) return <div className="min-h-screen bg-black dark" role="status" aria-label="Carregando sessão" />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
 export const router = createBrowserRouter([
   /* ── public ── */
   { path: '/',        element: <LandingPage /> },
   { path: '/login',   element: <LoginPage /> },
   { path: '/cadastro',element: <CadastroPage /> },
-  { path: '/onboarding', element: <OnboardingPage /> },
+  { path: '/onboarding', element: <RequireAuth><OnboardingPage /></RequireAuth> },
 
   /* ── student app ─ with shell ── */
   {
     path: '/app',
-    element: <StudentShell />,
+    element: <RequireAuth><StudentShell /></RequireAuth>,
     children: [
       { index: true,           element: <Navigate to="/app/iniciar" replace /> },
       { path: 'iniciar',       element: <IniciarPage />    },
@@ -46,15 +55,15 @@ export const router = createBrowserRouter([
   },
 
   /* ── student deep routes ─ no shell ── */
-  { path: '/app/aprender/:courseId',                            element: <CourseDetailPage /> },
-  { path: '/app/aprender/:courseId/classroom',                  element: <ClassroomPage />    },
-  { path: '/app/aprender/:courseId/classroom/:lessonId',        element: <StudyModePage />    },
-  { path: '/app/perfil',                                        element: <PerfilPage />       },
+  { path: '/app/aprender/:courseId',                            element: <RequireAuth><CourseDetailPage /></RequireAuth> },
+  { path: '/app/aprender/:courseId/classroom',                  element: <RequireAuth><ClassroomPage /></RequireAuth>    },
+  { path: '/app/aprender/:courseId/classroom/:lessonId',        element: <RequireAuth><StudyModePage /></RequireAuth>    },
+  { path: '/app/perfil',                                        element: <RequireAuth><PerfilPage /></RequireAuth>       },
 
   /* ── admin ─ with admin shell ── */
   {
     path: '/admin',
-    element: <AdminShell />,
+    element: <RequireAuth><AdminShell /></RequireAuth>,
     children: [
       { index: true,           element: <Navigate to="/admin/comunidade" replace /> },
       { path: 'comunidade',    element: <ComunidadePage />    },

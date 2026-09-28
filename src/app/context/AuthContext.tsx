@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import type { Role } from '../../lib/types';
+import { PASSWORD_MIN_LENGTH, PASSWORD_ERROR } from '../../lib/authValidation';
 
 export type { Role };
 
@@ -17,10 +18,12 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  authLoading: boolean;
+  authError: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; role?: Role; error?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; role?: Role; error?: string }>;
   loginWithFacebook: () => Promise<{ success: boolean; role?: Role; error?: string }>;
-  register: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string) => Promise<{ success: boolean; needsEmailConfirmation?: boolean; error?: string }>;
   logout: () => Promise<void>;
   markOnboardingDone: () => Promise<void>;
   enrolledCourses: string[];
@@ -34,8 +37,9 @@ async function fetchProfile(userId: string): Promise<User | null> {
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
-  if (error || !data) return null;
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
   return {
     id: data.id,
     username: data.email,
@@ -55,67 +59,81 @@ async function fetchEnrollments(userId: string): Promise<string[]> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const authRevision = useRef(0);
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [authState, setAuthState] = useState<{ session: Session | null; initialized: boolean }>({ session: null, initialized: false });
+  const { session } = authState;
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<string[]>([]);
 
-  const loadUserData = useCallback(async (s: Session) => {
-    setSession(s);
-    let profile = await fetchProfile(s.user.id);
-    
-    // Create profile if it doesn't exist (for social logins)
-    if (!profile) {
-      const { error: insertError } = await supabase.from('profiles').upsert({
-        id: s.user.id,
-        email: s.user.email || '',
-        display_name: s.user.user_metadata?.full_name || s.user.email?.split('@')[0] || 'Usuário',
-        role: 'student',
-        onboarding_done: false,
-        vsm_score: 0,
-        vsm_level: 1,
-      }, { onConflict: 'id' });
-      
-      if (!insertError) {
-        profile = await fetchProfile(s.user.id);
-      }
-    }
-    
-    setUser(profile);
-    const enrolled = await fetchEnrollments(s.user.id);
-    setEnrolledCourses(enrolled);
+  useEffect(() => {
+    let active = true;
+    let authEventReceived = false;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      authEventReceived = true;
+      authRevision.current += 1;
+      setAuthLoading(true);
+      setAuthError(null);
+      setUser(null);
+      setEnrolledCourses([]);
+      // Keep this callback synchronous; profile queries run in the effect below.
+      setAuthState(previous => ({ ...previous, session: nextSession }));
+    });
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error && !authEventReceived) setAuthError(error.message);
+      setAuthState(previous => ({
+        session: authEventReceived ? previous.session : data.session,
+        initialized: true,
+      }));
+    }).catch(() => {
+      if (!active) return;
+      setAuthError('Não foi possível recuperar a sessão. Tente novamente.');
+      setAuthState(previous => ({ ...previous, initialized: true }));
+    });
+
+    return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (s) loadUserData(s);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (s) {
-        loadUserData(s);
-      } else {
-        setSession(null);
-        setUser(null);
-        setEnrolledCourses([]);
+    if (!authState.initialized) return;
+    let active = true;
+    const revision = authRevision.current;
+    const isCurrent = () => active && revision === authRevision.current;
+    const loadUserData = async () => {
+      try {
+        if (!session) return;
+        const profile = await fetchProfile(session.user.id);
+        if (!isCurrent()) return;
+        setUser(profile);
+        if (!profile) {
+          setAuthError('Sua sessão está ativa, mas seu perfil ainda não está disponível.');
+          return;
+        }
+        const enrolled = await fetchEnrollments(session.user.id);
+        if (isCurrent()) setEnrolledCourses(enrolled);
+      } catch {
+        if (isCurrent()) {
+          setUser(null);
+          setAuthError('Não foi possível carregar seu perfil. Tente novamente.');
+        }
+      } finally {
+        if (isCurrent()) setAuthLoading(false);
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadUserData]);
+    };
+    void loadUserData();
+    return () => { active = false; };
+  }, [authState, session]);
 
   const login = useCallback(async (email: string, password: string) => {
+    if (password.length < PASSWORD_MIN_LENGTH) return { success: false, error: PASSWORD_ERROR };
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
     if (!data.session) return { success: false, error: 'Sessão não iniciada.' };
-    const profile = await fetchProfile(data.session.user.id);
-    if (!profile) return { success: false, error: 'Perfil não encontrado.' };
-    // Set state eagerly so navigation in the caller finds user already populated,
-    // avoiding the race with onAuthStateChange which fires asynchronously.
-    setSession(data.session);
-    setUser(profile);
-    const enrolled = await fetchEnrollments(data.session.user.id);
-    setEnrolledCourses(enrolled);
-    return { success: true, role: profile.role };
+    return { success: true };
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
@@ -142,34 +160,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   }, []);
 
-  const register = useCallback(async (email: string, password: string, displayName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: displayName } },
-    });
+  const register = useCallback(async (email: string, password: string) => {
+    if (password.length < PASSWORD_MIN_LENGTH) return { success: false, error: PASSWORD_ERROR };
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { success: false, error: error.message };
     if (!data.user) return { success: false, error: 'Falha ao criar usuário.' };
-
-    // Create profile row (trigger might handle this; insert with ignore if duplicate)
-    await supabase.from('profiles').upsert({
-      id: data.user.id,
-      email,
-      display_name: displayName,
-      role: 'student',
-      onboarding_done: false,
-      vsm_score: 0,
-      vsm_level: 1,
-    }, { onConflict: 'id' });
-
-    return { success: true };
+    return { success: true, needsEmailConfirmation: !data.session };
   }, []);
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setEnrolledCourses([]);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }, []);
 
   const markOnboardingDone = useCallback(async () => {
@@ -191,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, session, login, loginWithGoogle, loginWithFacebook, register, logout, markOnboardingDone, enrolledCourses, enrollCourse }}>
+    <AuthContext.Provider value={{ user, session, authLoading, authError, login, loginWithGoogle, loginWithFacebook, register, logout, markOnboardingDone, enrolledCourses, enrollCourse }}>
       {children}
     </AuthContext.Provider>
   );
