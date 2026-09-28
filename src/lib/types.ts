@@ -31,6 +31,7 @@ export interface Course {
   id: string;
   title: string;
   subtitle: string;
+  slug: string;
   image_url: string | null;
   tag: string;
   description: string | null;
@@ -46,21 +47,35 @@ export interface Module {
   id: string;
   course_id: string;
   title: string;
+  description: string;
   order_index: number;
   created_at: string;
+  updated_at: string;
 }
 
 // ─── Lessons ───────────────────────────────────────────────────
 
-export type LessonType = 'video' | 'text' | 'audio';
+export type LessonBlockType = 'video' | 'text' | 'image' | 'audio';
 
 export interface Lesson {
   id: string;
   module_id: string;
   title: string;
+  description: string;
   duration: string;
-  type: LessonType;
-  content_url: string | null;
+  is_published: boolean;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LessonBlock {
+  id: string;
+  lesson_id: string;
+  type: LessonBlockType;
+  title: string | null;
+  content: string;
+  media_url: string | null;
   order_index: number;
   created_at: string;
 }
@@ -72,6 +87,7 @@ export interface Quiz {
   course_id: string | null;
   lesson_id: string | null;
   title: string;
+  description: string;
   created_at: string;
 }
 
@@ -179,4 +195,12 @@ export interface CourseWithProgress extends Course {
   lessons_done: number;
   lessons_total: number;
   modules: Array<Module & { lessons: Lesson[] }>;
+}
+
+export interface ModuleWithLessons extends Module {
+  lessons: Lesson[];
+}
+
+export interface QuizWithQuestions extends Quiz {
+  quiz_questions: QuizQuestion[];
 }

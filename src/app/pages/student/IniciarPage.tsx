@@ -5,7 +5,7 @@ export function IniciarPage() {
   const navigate = useNavigate();
   return (
     <Home
-      onNavigateToCourse={id => navigate(`/app/aprender/${id}`)}
+      onNavigateToCourse={slug => navigate(`/app/aprender/${slug}`)}
       onNavigateToAgenda={() => navigate('/app/conectar')}
     />
   );

@@ -1,14 +1,8 @@
 import { ArrowRight, Calendar, MapPin, Play, TrendingUp, Eye, Zap } from 'lucide-react';
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from 'recharts';
-
-import imgImageDominacaoAbsoluta from "figma:asset/9d0b0475eccd0337994da6766bb60e9be4982b13.png";
-import imgImageArteDaConquista from "figma:asset/85bb2779d47fe59ded6690ec8da200446d0a5024.png";
-import imgImagePsicologiaDark from "figma:asset/e5a64e3be5e34ec4cec4aa5c50b48f504b380c62.png";
-import imgImageLinguagemCorporal from "figma:asset/337640c5cf08e0ad9c23e8ae900fd272e0d526d6.png";
-import imgImageStorytellingAvancado from "figma:asset/a03b26e01c9e37942fa239356e6fab2f6c5e59cb.png";
-import imgImageFrameControl from "figma:asset/a1d81e5262848e5e04280b59f72fc7b1f64f4009.png";
-import imgImageAtracaoDeAltoValor from "figma:asset/1ef4b41b9a29b7b0c38daa419f9f81b4bbae7378.png";
-import imgImageCalibracaoSocial from "figma:asset/d265452ca2c553032e02af622bb2c15f7446b618.png";
+import { useAuth } from '../context/AuthContext';
+import { useAllLearningContent } from '../../lib/hooks/useLearning';
+import { useProgress } from '../../lib/hooks/useProgress';
 
 // Design tokens
 const BG = '#121212';
@@ -19,23 +13,9 @@ const TEXT_SECONDARY = '#9E9E9E';
 const TEXT_TERTIARY = '#666666';
 
 interface HomeProps {
-  onNavigateToCourse: (courseId: number) => void;
+  onNavigateToCourse: (slug: string) => void;
   onNavigateToAgenda?: () => void;
 }
-
-const ongoingCourses = [
-  { id: 1, title: 'Dominação Absoluta', subtitle: 'Controle Total', progress: 45, image: imgImageDominacaoAbsoluta },
-  { id: 2, title: 'Arte Da Conquista', subtitle: 'Sedução Refinada', progress: 72, image: imgImageArteDaConquista },
-  { id: 3, title: 'Psicologia Dark', subtitle: 'Manipulação Ética', progress: 18, image: imgImagePsicologiaDark },
-  { id: 4, title: 'Linguagem Corporal', subtitle: 'Presença Alpha', progress: 60, image: imgImageLinguagemCorporal },
-];
-
-const newCourses = [
-  { id: 5, title: 'Storytelling Avançado', subtitle: 'Narrativas Poderosas', image: imgImageStorytellingAvancado },
-  { id: 6, title: 'Frame Control', subtitle: 'Domínio De Situações', image: imgImageFrameControl },
-  { id: 7, title: 'Atração De Alto Valor', subtitle: 'Magnetismo Pessoal', image: imgImageAtracaoDeAltoValor },
-  { id: 8, title: 'Calibração Social', subtitle: 'Inteligência De Campo', image: imgImageCalibracaoSocial },
-];
 
 const upcomingEvents = [
   { id: 1, name: 'Isabela', date: 'Sex, 21 Fev', time: '20:00', location: 'Bar Astor', confirmed: true },
@@ -161,6 +141,16 @@ function CourseCard916({
 }
 
 export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
+  const { user, enrolledCourses } = useAuth();
+  const { courses, loading, error } = useAllLearningContent();
+  const { progress } = useProgress(user?.id ?? null);
+  const ongoingCourses = courses.filter(course => enrolledCourses.includes(course.id)).map(course => {
+    const lessons = course.modules.flatMap(module => module.lessons);
+    const done = lessons.filter(lesson => progress.some(item => item.lesson_id === lesson.id)).length;
+    return { ...course, image: course.image_url ?? '', progress: lessons.length ? Math.round((done / lessons.length) * 100) : 0 };
+  });
+  const newCourses = courses.filter(course => !enrolledCourses.includes(course.id)).slice(0, 4).map(course => ({ ...course, image: course.image_url ?? '' }));
+
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: BG }}>
       {/* Header */}
@@ -169,7 +159,7 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
         style={{ background: `linear-gradient(to bottom, #0A1220, ${BG})` }}
       >
         <p style={{ color: TEXT_SECONDARY, fontSize: 13, fontWeight: 400, lineHeight: 1.5, marginBottom: 2 }}>
-          Bem-vindo de volta, João
+          Bem-vindo de volta, {user?.displayName ?? 'aluno'}
         </p>
         <h1 className="text-white mb-1" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '0.02em', lineHeight: 1.3 }}>
           Iniciar
@@ -184,8 +174,9 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
         <SectionLabel title="Em Andamento" action={`${ongoingCourses.length} cursos`} />
         <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory md:grid md:grid-cols-4 md:overflow-x-visible md:snap-none">
           {ongoingCourses.map(c => (
-            <CourseCard916 key={c.id} {...c} onClick={() => onNavigateToCourse(c.id)} />
+            <CourseCard916 key={c.id} {...c} onClick={() => onNavigateToCourse(c.slug)} />
           ))}
+          {!loading && !error && ongoingCourses.length === 0 && <p style={{ color: TEXT_TERTIARY, fontSize: 13 }}>Nenhum curso em andamento.</p>}
         </div>
       </div>
 
@@ -194,8 +185,9 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
         <SectionLabel title="Novos Cursos" action="Ver Todos" />
         <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory md:grid md:grid-cols-4 md:overflow-x-visible md:snap-none">
           {newCourses.map(c => (
-            <CourseCard916 key={c.id} {...c} tag="Novo" onClick={() => onNavigateToCourse(c.id)} />
+            <CourseCard916 key={c.id} {...c} tag={c.tag} onClick={() => onNavigateToCourse(c.slug)} />
           ))}
+          {(loading || error) && <p style={{ color: TEXT_TERTIARY, fontSize: 13 }}>{loading ? 'Carregando cursos...' : 'Não foi possível carregar os cursos.'}</p>}
         </div>
       </div>
 

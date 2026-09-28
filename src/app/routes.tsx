@@ -55,9 +55,9 @@ export const router = createBrowserRouter([
   },
 
   /* ── student deep routes ─ no shell ── */
-  { path: '/app/aprender/:courseId',                            element: <RequireAuth><CourseDetailPage /></RequireAuth> },
-  { path: '/app/aprender/:courseId/classroom',                  element: <RequireAuth><ClassroomPage /></RequireAuth>    },
-  { path: '/app/aprender/:courseId/classroom/:lessonId',        element: <RequireAuth><StudyModePage /></RequireAuth>    },
+  { path: '/app/aprender/:slug',                                element: <RequireAuth><CourseDetailPage /></RequireAuth> },
+  { path: '/app/aprender/:slug/classroom',                      element: <RequireAuth><ClassroomPage /></RequireAuth>    },
+  { path: '/app/aprender/:slug/classroom/:lessonId',            element: <RequireAuth><StudyModePage /></RequireAuth>    },
   { path: '/app/perfil',                                        element: <RequireAuth><PerfilPage /></RequireAuth>       },
 
   /* ── admin ─ with admin shell ── */

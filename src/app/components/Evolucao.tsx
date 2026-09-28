@@ -5,11 +5,9 @@ import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
   AreaChart, Area,
 } from 'recharts';
-
-import imgImageDominacaoAbsoluta from "figma:asset/9d0b0475eccd0337994da6766bb60e9be4982b13.png";
-import imgImageArteDaConquista from "figma:asset/85bb2779d47fe59ded6690ec8da200446d0a5024.png";
-import imgImagePsicologiaDark from "figma:asset/e5a64e3be5e34ec4cec4aa5c50b48f504b380c62.png";
-import imgImageLinguagemCorporal from "figma:asset/337640c5cf08e0ad9c23e8ae900fd272e0d526d6.png";
+import { useAuth } from '../context/AuthContext';
+import { useAllLearningContent } from '../../lib/hooks/useLearning';
+import { useProgress } from '../../lib/hooks/useProgress';
 
 // ── Design Tokens ──────────────────────────────────────────────
 const BG      = '#121212';
@@ -276,18 +274,18 @@ function buildInitialCalLog(): { date: string; calories: number }[] {
 
 const INITIAL_CAL_LOG = buildInitialCalLog();
 
-// ── Courses in progress ───────────────────────────────────────
-const IN_PROGRESS_COURSES = [
-  { id: 1, title: 'Dominação Absoluta', subtitle: 'Controle Total', progress: 45, image: imgImageDominacaoAbsoluta, lessons: 12, done: 5 },
-  { id: 2, title: 'Arte Da Conquista', subtitle: 'Sedução Refinada', progress: 72, image: imgImageArteDaConquista, lessons: 18, done: 13 },
-  { id: 3, title: 'Psicologia Dark', subtitle: 'Manipulação Ética', progress: 18, image: imgImagePsicologiaDark, lessons: 15, done: 3 },
-  { id: 4, title: 'Linguagem Corporal', subtitle: 'Presença Alpha', progress: 60, image: imgImageLinguagemCorporal, lessons: 10, done: 6 },
-];
-
 // ── Main Component ────────────────────────────────────────────
-interface EvolucaoProps { onSelectCourse: (id: number) => void; }
+interface EvolucaoProps { onSelectCourse: (slug: string) => void; }
 
 export function Evolucao({ onSelectCourse }: EvolucaoProps) {
+  const { user, enrolledCourses } = useAuth();
+  const { courses, loading: coursesLoading, error: coursesError } = useAllLearningContent();
+  const { progress: learningProgress } = useProgress(user?.id ?? null);
+  const inProgressCourses = courses.filter(course => enrolledCourses.includes(course.id)).map(course => {
+    const courseLessons = course.modules.flatMap(module => module.lessons);
+    const done = courseLessons.filter(lesson => learningProgress.some(item => item.lesson_id === lesson.id)).length;
+    return { ...course, image: course.image_url ?? '', lessons: courseLessons.length, done, progress: courseLessons.length ? Math.round((done / courseLessons.length) * 100) : 0 };
+  });
   const [activeTab, setActiveTab] = useState<'aprendendo' | 'corpo' | 'dieta' | 'financas'>('aprendendo');
 
   // ── Corpo state ──
@@ -493,16 +491,16 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
         <div className="px-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white" style={{ fontSize: 16, fontWeight: 500, letterSpacing: '0.02em', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Cursos Em Andamento</h2>
-            <span style={{ color: TEXT3, fontSize: 12, fontWeight: 400, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{IN_PROGRESS_COURSES.length} cursos</span>
+            <span style={{ color: TEXT3, fontSize: 12, fontWeight: 400, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{inProgressCourses.length} cursos</span>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {IN_PROGRESS_COURSES.map(course => {
+            {inProgressCourses.map(course => {
               const src = typeof course.image === 'string' ? course.image : (course.image as any)?.src ?? course.image;
               return (
                 <button
                   key={course.id}
-                  onClick={() => onSelectCourse(course.id)}
+                  onClick={() => onSelectCourse(course.slug)}
                   className="text-left group"
                 >
                   <div
@@ -561,6 +559,7 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
                 </button>
               );
             })}
+            {(coursesLoading || coursesError || inProgressCourses.length === 0) && <p style={{ color: TEXT3, fontSize: 13 }}>{coursesLoading ? 'Carregando cursos...' : coursesError ? 'Não foi possível carregar os cursos.' : 'Nenhum curso em andamento.'}</p>}
           </div>
         </div>
       )}

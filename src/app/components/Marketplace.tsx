@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
-
-import imgImageDominacaoAbsoluta from "figma:asset/9d0b0475eccd0337994da6766bb60e9be4982b13.png";
-import imgImageArteDaConquista from "figma:asset/85bb2779d47fe59ded6690ec8da200446d0a5024.png";
-import imgImagePsicologiaDark from "figma:asset/e5a64e3be5e34ec4cec4aa5c50b48f504b380c62.png";
-import imgImageLinguagemCorporal from "figma:asset/337640c5cf08e0ad9c23e8ae900fd272e0d526d6.png";
-import imgImageStorytellingAvancado from "figma:asset/a03b26e01c9e37942fa239356e6fab2f6c5e59cb.png";
-import imgImageFrameControl from "figma:asset/a1d81e5262848e5e04280b59f72fc7b1f64f4009.png";
-import imgImageAtracaoDeAltoValor from "figma:asset/1ef4b41b9a29b7b0c38daa419f9f81b4bbae7378.png";
-import imgImageCalibracaoSocial from "figma:asset/d265452ca2c553032e02af622bb2c15f7446b618.png";
+import { useCourses } from '../../lib/hooks/useLearning';
 
 // Design tokens
 const BG = '#121212';
@@ -19,27 +11,17 @@ const TEXT_SECONDARY = '#9E9E9E';
 const TEXT_TERTIARY = '#666666';
 
 interface MarketplaceProps {
-  onSelectCourse: (courseId: number) => void;
+  onSelectCourse: (slug: string) => void;
 }
-
-const COURSES = [
-  { id: 1, title: 'Dominação Absoluta', subtitle: 'Controle Total', image: imgImageDominacaoAbsoluta, tag: 'Avançado' },
-  { id: 2, title: 'Arte da Conquista', subtitle: 'Sedução Refinada', image: imgImageArteDaConquista, tag: 'Intermediário' },
-  { id: 3, title: 'Psicologia Dark', subtitle: 'Manipulação Ética', image: imgImagePsicologiaDark, tag: 'Avançado' },
-  { id: 4, title: 'Linguagem Corporal', subtitle: 'Presença Alpha', image: imgImageLinguagemCorporal, tag: 'Iniciante' },
-  { id: 5, title: 'Storytelling Avançado', subtitle: 'Narrativas Poderosas', image: imgImageStorytellingAvancado, tag: 'Novo' },
-  { id: 6, title: 'Frame Control', subtitle: 'Domínio De Situações', image: imgImageFrameControl, tag: 'Novo' },
-  { id: 7, title: 'Atração De Alto Valor', subtitle: 'Magnetismo Pessoal', image: imgImageAtracaoDeAltoValor, tag: 'Novo' },
-  { id: 8, title: 'Calibração Social', subtitle: 'Inteligência De Campo', image: imgImageCalibracaoSocial, tag: 'Iniciante' },
-];
 
 const CATEGORIES = ['Todos', 'Iniciante', 'Intermediário', 'Avançado', 'Novo'];
 
 export function Marketplace({ onSelectCourse }: MarketplaceProps) {
+  const { courses, loading, error } = useCourses();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Todos');
 
-  const filtered = COURSES.filter(c => {
+  const filtered = courses.filter(c => {
     const matchSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = activeCategory === 'Todos' || c.tag === activeCategory;
     return matchSearch && matchCat;
@@ -115,7 +97,7 @@ export function Marketplace({ onSelectCourse }: MarketplaceProps) {
           {filtered.map(course => (
             <button
               key={course.id}
-              onClick={() => onSelectCourse(course.id)}
+              onClick={() => onSelectCourse(course.slug)}
               className="text-left group"
             >
               {/* 9:16 Card */}
@@ -125,7 +107,7 @@ export function Marketplace({ onSelectCourse }: MarketplaceProps) {
               >
                 {/* Photo */}
                 <img
-                  src={course.image}
+                  src={course.image_url ?? ''}
                   alt={course.title}
                   className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                 />
@@ -191,10 +173,10 @@ export function Marketplace({ onSelectCourse }: MarketplaceProps) {
           ))}
         </div>
 
-        {filtered.length === 0 && (
+        {(loading || error || filtered.length === 0) && (
           <div className="text-center py-16">
             <p style={{ color: TEXT_TERTIARY, fontSize: 14, fontWeight: 400 }}>
-              Nenhum curso encontrado.
+              {loading ? 'Carregando cursos...' : error ? 'Não foi possível carregar os cursos.' : 'Nenhum curso encontrado.'}
             </p>
           </div>
         )}
