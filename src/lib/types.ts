@@ -118,6 +118,34 @@ export interface LessonProgress {
   completed_at: string;
 }
 
+// ─── Library ──────────────────────────────────────────────────
+
+export type LibraryItemType = 'audio' | 'book' | 'script' | 'pdf';
+
+export interface LibraryItem {
+  id: string;
+  type: LibraryItemType;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  category: string | null;
+  cover_url: string | null;
+  file_url: string | null;
+  content: string | null;
+  duration_minutes: number | null;
+  pages: number | null;
+  line_count: number | null;
+  views: number;
+  is_published: boolean;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LibraryItemInput = Omit<LibraryItem, 'id' | 'created_at' | 'updated_at' | 'views'> & {
+  views?: number;
+};
+
 // ─── Contacts (CRM / Social Pipeline) ─────────────────────────
 
 export type ContactStage =
