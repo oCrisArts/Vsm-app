@@ -5,15 +5,25 @@ export type Role = 'student' | 'admin';
 export interface Profile {
   id: string;
   email: string;
-  display_name: string;
+  display_name: string | null;
   role: Role;
   avatar_url: string | null;
   vsm_score: number;
   vsm_level: number;
+  total_xp: number;
+  shape_score: number;
+  finance_score: number;
+  knowledge_score: number;
+  social_score: number;
   onboarding_done: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export type ProfileUpdate = Pick<
+  Profile,
+  'display_name' | 'avatar_url' | 'onboarding_done'
+>;
 
 // ─── Courses ───────────────────────────────────────────────────
 

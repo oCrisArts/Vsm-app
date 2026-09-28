@@ -43,7 +43,7 @@ async function fetchProfile(userId: string): Promise<User | null> {
   return {
     id: data.id,
     username: data.email,
-    displayName: data.display_name,
+    displayName: data.display_name ?? data.email.split('@')[0],
     email: data.email,
     role: data.role as Role,
     onboardingDone: data.onboarding_done,

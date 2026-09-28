@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
-import type { Profile } from '../types';
+import type { Profile, ProfileUpdate } from '../types';
 
 export function useProfile(userId: string | null) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -22,11 +22,11 @@ export function useProfile(userId: string | null) {
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
+  const updateProfile = useCallback(async (updates: Partial<ProfileUpdate>) => {
     if (!userId) return;
     const { data, error } = await supabase
       .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', userId)
       .select()
       .single();
@@ -38,9 +38,5 @@ export function useProfile(userId: string | null) {
     await updateProfile({ onboarding_done: true });
   }, [updateProfile]);
 
-  const updateVsmScore = useCallback(async (score: number, level: number) => {
-    await updateProfile({ vsm_score: score, vsm_level: level });
-  }, [updateProfile]);
-
-  return { profile, loading, error, fetchProfile, updateProfile, markOnboardingDone, updateVsmScore };
+  return { profile, loading, error, fetchProfile, updateProfile, markOnboardingDone };
 }
