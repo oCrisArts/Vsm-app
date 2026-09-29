@@ -118,6 +118,45 @@ export interface LessonProgress {
   completed_at: string;
 }
 
+// ─── VSM / Gamification ──────────────────────────────────────
+
+export interface VsmHistoryEntry {
+  id: string;
+  user_id: string;
+  score: number;
+  event_type: string;
+  description: string | null;
+  created_at: string;
+}
+
+export type XpEventType = 'lesson_completed' | 'quiz_completed' | 'course_completed' | 'achievement';
+
+export interface XpEvent {
+  id: string;
+  user_id: string;
+  event_type: XpEventType;
+  points: number;
+  source_type: 'lesson' | 'quiz' | 'course' | 'achievement';
+  source_id: string | null;
+  created_at: string;
+}
+
+export interface Achievement {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  xp_reward: number;
+  is_active: boolean;
+}
+
+export interface UserAchievement {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at: string;
+}
+
 // ─── Library ──────────────────────────────────────────────────
 
 export type LibraryItemType = 'audio' | 'book' | 'script' | 'pdf';

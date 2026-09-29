@@ -148,6 +148,10 @@ export function useAllLearningContent() {
         course.modules.sort((a, b) => a.order_index - b.order_index);
         course.modules.forEach(module => module.lessons.sort((a, b) => a.order_index - b.order_index));
       });
+      await Promise.all(values.map(async course => {
+        course.image_url = await signedAssetUrl('course-covers', course.image_url);
+      }));
+      if (!active) return;
       setCourses(values);
       setQuizzes((quizResult.data ?? []) as LearningQuiz[]);
       setError((courseResult.error ?? quizResult.error)?.message ?? null);

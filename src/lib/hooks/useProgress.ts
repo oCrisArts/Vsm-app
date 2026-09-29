@@ -26,14 +26,11 @@ export function useProgress(userId: string | null, courseId?: string) {
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
 
   const markComplete = useCallback(async (lessonId: string) => {
-    if (!userId) return;
-    const { data } = await supabase
-      .from('progress')
-      .upsert({ user_id: userId, lesson_id: lessonId })
-      .select()
-      .single();
-    if (data) setProgress(prev => [...prev.filter(p => p.lesson_id !== lessonId), data as LessonProgress]);
-  }, [userId]);
+    if (!userId) return { data: null, error: new Error('Authentication required') };
+    const result = await supabase.rpc('complete_lesson', { target_lesson_id: lessonId });
+    if (!result.error) await fetchProgress();
+    return result;
+  }, [userId, fetchProgress]);
 
   const isCompleted = useCallback(
     (lessonId: string) => progress.some(p => p.lesson_id === lessonId),

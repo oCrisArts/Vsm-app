@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useAllLearningContent } from '../../lib/hooks/useLearning';
 import { useProgress } from '../../lib/hooks/useProgress';
+import { useGamification } from '../../lib/hooks/useGamification';
 
 // ── Design Tokens ──────────────────────────────────────────────
 const BG      = '#121212';
@@ -281,6 +282,7 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   const { user, enrolledCourses } = useAuth();
   const { courses, loading: coursesLoading, error: coursesError } = useAllLearningContent();
   const { progress: learningProgress } = useProgress(user?.id ?? null);
+  const { profile: gamificationProfile } = useGamification(user?.id ?? null);
   const inProgressCourses = courses.filter(course => enrolledCourses.includes(course.id)).map(course => {
     const courseLessons = course.modules.flatMap(module => module.lessons);
     const done = courseLessons.filter(lesson => learningProgress.some(item => item.lesson_id === lesson.id)).length;
@@ -295,15 +297,9 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   const [showRegisterSheet, setShowRegisterSheet] = useState(false);
   const [newWeight, setNewWeight] = useState('');
   const [newFat, setNewFat] = useState('');
-  const [xpFlash, setXpFlash] = useState<string | null>(null);
 
   const currentWeight = weightHistory[weightHistory.length - 1].value;
   const currentFat = fatHistory[fatHistory.length - 1].value;
-
-  const fireXP = (label: string) => {
-    setXpFlash(label);
-    setTimeout(() => setXpFlash(null), 2000);
-  };
 
   const saveBodyLog = () => {
     const dateLabel = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -316,7 +312,6 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
     setNewWeight('');
     setNewFat('');
     setShowRegisterSheet(false);
-    fireXP('+20 XP VSM');
   };
 
   // ── Dieta state ──
@@ -361,7 +356,6 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
     setMealCalories('');
     setMealLabel('');
     setShowAddMealSheet(false);
-    fireXP('+10 XP VSM');
   };
 
   const calChartData = calorieLog.slice(-10).map(e => ({
@@ -389,7 +383,6 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
     else if (showFinanceSheet === 'expense') setExpenses(val);
     setFinanceInput('');
     setShowFinanceSheet(null);
-    fireXP('+10 XP VSM');
   };
 
   // ── Tabs ──
@@ -414,24 +407,6 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: BG }}>
 
-      {/* XP Flash */}
-      <AnimatePresence>
-        {xpFlash && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="fixed top-20 left-1/2 z-[999] pointer-events-none"
-            style={{ transform: 'translateX(-50%)' }}
-          >
-            <div className="flex items-center gap-2 px-5 py-3" style={{ backgroundColor: PRIMARY, borderRadius: 100, boxShadow: '0 4px 20px rgba(30,64,175,0.5)' }}>
-              <Zap size={14} fill="white" className="text-white" />
-              <span className="text-white" style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>{xpFlash}</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Header */}
       <div className="px-5 pt-4 pb-5" style={{ background: `linear-gradient(to bottom, #0A1220, ${BG})` }}>
         <h1 className="text-white mb-1" style={{ fontSize: 28, fontWeight: 500, letterSpacing: '0.02em', lineHeight: 1.3, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Evoluir</h1>
@@ -442,13 +417,13 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
       <div className="px-5 mb-6">
           <div className="p-4" style={{ backgroundColor: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
               <div className="flex items-center justify-between mb-2">
-                  <span className="text-white" style={{ fontSize: 14, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Seu VSM: 76</span>
-                  <span style={{ color: PRIMARY, fontSize: 12, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Nível 8</span>
+                  <span className="text-white" style={{ fontSize: 14, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Seu VSM: {gamificationProfile?.vsm_score ?? 0}</span>
+                  <span style={{ color: PRIMARY, fontSize: 12, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Nível {gamificationProfile?.vsm_level ?? 1}</span>
               </div>
               <div className="w-full h-2" style={{ backgroundColor: SURFACE2, borderRadius: 4, overflow: 'hidden' }}>
                   <motion.div 
                     initial={{ width: 0 }}
-                    animate={{ width: '76%' }}
+                    animate={{ width: `${gamificationProfile?.vsm_score ?? 0}%` }}
                     transition={{ duration: 1 }}
                     style={{ height: '100%', backgroundColor: PRIMARY, borderRadius: 4 }}
                   />

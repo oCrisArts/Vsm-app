@@ -1,7 +1,7 @@
 import { Navigate, useNavigate } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { ProfileNew } from '../../components/ProfileNew';
+import { ProfileReal } from '../../components/ProfileReal';
 
 export function PerfilPage() {
   const { user, logout } = useAuth();
@@ -29,7 +29,7 @@ export function PerfilPage() {
       </div>
 
       <div style={{ paddingTop: 56 }}>
-        <ProfileNew onClose={handleClose} onLogout={logout} />
+        <ProfileReal onClose={handleClose} onLogout={logout} />
       </div>
     </div>
   );

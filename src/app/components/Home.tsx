@@ -1,8 +1,10 @@
-import { ArrowRight, Calendar, MapPin, Play, TrendingUp, Eye, Zap } from 'lucide-react';
+import { ArrowRight, BookOpen, Calendar, DollarSign, Dumbbell, MapPin, Play, Users } from 'lucide-react';
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useAllLearningContent } from '../../lib/hooks/useLearning';
 import { useProgress } from '../../lib/hooks/useProgress';
+import { useGamification, vsmLevelLabel } from '../../lib/hooks/useGamification';
+import { useContacts } from '../../lib/hooks/useContacts';
 
 // Design tokens
 const BG = '#121212';
@@ -16,20 +18,6 @@ interface HomeProps {
   onNavigateToCourse: (slug: string) => void;
   onNavigateToAgenda?: () => void;
 }
-
-const upcomingEvents = [
-  { id: 1, name: 'Isabela', date: 'Sex, 21 Fev', time: '20:00', location: 'Bar Astor', confirmed: true },
-  { id: 2, name: 'Camila', date: 'Sáb, 22 Fev', time: '18:30', location: 'Parque Ibirapuera', confirmed: false },
-];
-
-const metrics = [
-  { title: 'Valor Social', value: 82, Icon: TrendingUp },
-  { title: 'Pré-seleção', value: 71, Icon: Eye },
-  { title: 'Presença', value: 79, Icon: Zap },
-];
-
-const vsmLevel = 76;
-const vsmData = [{ value: vsmLevel, fill: PRIMARY }];
 
 // Reusable section label
 function SectionLabel({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
@@ -144,12 +132,26 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
   const { user, enrolledCourses } = useAuth();
   const { courses, loading, error } = useAllLearningContent();
   const { progress } = useProgress(user?.id ?? null);
+  const { profile } = useGamification(user?.id ?? null);
+  const { scheduledContacts } = useContacts(user?.id ?? null);
   const ongoingCourses = courses.filter(course => enrolledCourses.includes(course.id)).map(course => {
     const lessons = course.modules.flatMap(module => module.lessons);
     const done = lessons.filter(lesson => progress.some(item => item.lesson_id === lesson.id)).length;
     return { ...course, image: course.image_url ?? '', progress: lessons.length ? Math.round((done / lessons.length) * 100) : 0 };
   });
   const newCourses = courses.filter(course => !enrolledCourses.includes(course.id)).slice(0, 4).map(course => ({ ...course, image: course.image_url ?? '' }));
+  const vsmScore = profile?.vsm_score ?? 0;
+  const vsmData = [{ value: vsmScore, fill: PRIMARY }];
+  const metrics = [
+    { title: 'Shape', value: profile?.shape_score ?? 0, Icon: Dumbbell },
+    { title: 'Finanças', value: profile?.finance_score ?? 0, Icon: DollarSign },
+    { title: 'Conhecimento', value: profile?.knowledge_score ?? 0, Icon: BookOpen },
+    { title: 'Social', value: profile?.social_score ?? 0, Icon: Users },
+  ];
+  const upcomingEvents = scheduledContacts
+    .filter(contact => contact.meeting_date && new Date(`${contact.meeting_date}T${contact.meeting_time || '00:00'}`) >= new Date(new Date().toDateString()))
+    .sort((a, b) => `${a.meeting_date}${a.meeting_time}`.localeCompare(`${b.meeting_date}${b.meeting_time}`))
+    .slice(0, 2);
 
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: BG }}>
@@ -165,7 +167,7 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
           Iniciar
         </h1>
         <p style={{ color: '#93C5FD', fontSize: 13, fontWeight: 500 }}>
-          Vsm Atual: <span className="text-white">{vsmLevel}</span> · Status: Elite
+          Vsm Atual: <span className="text-white">{vsmScore}</span> · Status: {vsmLevelLabel(profile?.vsm_level ?? 1)}
         </p>
       </div>
 
@@ -211,23 +213,24 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-white" style={{ fontSize: 13, fontWeight: 500 }}>{event.name}</p>
-                  {event.confirmed && (
+                  {event.stage === 'Encontro Solicitado' && (
                     <span style={{ backgroundColor: '#14532D', color: '#86EFAC', fontSize: 9, fontWeight: 500, borderRadius: 4, padding: '1px 6px', letterSpacing: '0.04em' }}>
                       CONFIRMADO
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span style={{ color: TEXT_SECONDARY, fontSize: 11, fontWeight: 400 }}>{event.date} · {event.time}</span>
+                  <span style={{ color: TEXT_SECONDARY, fontSize: 11, fontWeight: 400 }}>{event.meeting_date ? new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).format(new Date(`${event.meeting_date}T12:00:00`)) : ''} · {event.meeting_time || '--:--'}</span>
                   <div className="flex items-center gap-1">
                     <MapPin size={10} style={{ color: TEXT_TERTIARY }} />
-                    <span style={{ color: TEXT_TERTIARY, fontSize: 11, fontWeight: 400 }}>{event.location}</span>
+                    <span style={{ color: TEXT_TERTIARY, fontSize: 11, fontWeight: 400 }}>{event.meeting_location || 'Local a definir'}</span>
                   </div>
                 </div>
               </div>
               <ArrowRight size={14} style={{ color: TEXT_TERTIARY }} />
             </button>
           ))}
+          {upcomingEvents.length === 0 && <p style={{ color: TEXT_TERTIARY, fontSize: 13 }}>Nenhum encontro agendado.</p>}
         </div>
       </div>
 
@@ -238,10 +241,10 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-white" style={{ fontSize: 15, fontWeight: 500, letterSpacing: '0.02em' }}>Valor Sexual de Mercado</p>
-              <p style={{ color: '#93C5FD', fontSize: 12, fontWeight: 500, marginTop: 2 }}>Status: Elite</p>
+              <p style={{ color: '#93C5FD', fontSize: 12, fontWeight: 500, marginTop: 2 }}>Status: {vsmLevelLabel(profile?.vsm_level ?? 1)}</p>
             </div>
             <div className="text-right">
-              <div style={{ color: PRIMARY, fontSize: 36, fontWeight: 500 }}>{vsmLevel}</div>
+              <div style={{ color: PRIMARY, fontSize: 36, fontWeight: 500 }}>{vsmScore}</div>
               <p style={{ color: TEXT_TERTIARY, fontSize: 11, fontWeight: 400 }}>de 100</p>
             </div>
           </div>
@@ -258,7 +261,7 @@ export function Home({ onNavigateToCourse, onNavigateToAgenda }: HomeProps) {
 
       {/* ── MÉTRICAS ── */}
       <div className="px-5">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {metrics.map(({ title, value, Icon }) => (
             <div key={title} style={{ backgroundColor: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
               <div className="flex flex-col items-center text-center">
