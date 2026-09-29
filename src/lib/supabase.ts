@@ -11,5 +11,3 @@ export const supabase = createClient(
     },
   }
 );
-
-export const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-bbe832b4`;

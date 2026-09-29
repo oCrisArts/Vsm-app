@@ -38,7 +38,7 @@ No painel do Supabase:
 2. Adicione seu site URL (por exemplo: http://localhost:5174 para desenvolvimento)
 3. Adicione os redirect URLs permitidos:
    - `http://localhost:5174/**`
-   - Para produção: `https://seu-dominio.com/**`
+   - Para produção: `https://vsm-app-coral.vercel.app/**`
 
 ## 5. Implementação Atual
 
@@ -54,7 +54,7 @@ O sistema de autenticação foi completamente refatorado:
 1. **AuthContext.tsx**: Adicionados métodos `loginWithGoogle()` e `loginWithFacebook()`
 2. **Login.tsx**: Botões de login social agora chamam os métodos reais do Supabase
 3. **LoginPage.tsx**: Integração com os novos métodos de login social
-4. **CadastroPage.tsx**: Mantido para cadastro por email/senha
+4. **CadastroPage.tsx**: Mantido somente como redirect compatível para `/login`
 
 ### Comportamento do Sistema:
 - O Supabase gerencia automaticamente o redirecionamento OAuth
@@ -74,7 +74,7 @@ Após configurar:
 ## Observações Importantes
 
 - O sistema cria automaticamente um perfil na tabela `profiles` se não existir
-- Para login social, o display_name é obtido dos metadados do usuário
+- O `display_name` inicial é a parte do e-mail anterior a `@`
 - O usuário é automaticamente definido como role 'student' para novos cadastros
 - Após o primeiro login, o usuário é redirecionado para o onboarding
 - Não é necessário uma página de callback separada - o Supabase gerencia isso automaticamente

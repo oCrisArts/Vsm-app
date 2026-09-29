@@ -22,8 +22,8 @@ import { PerfilPage }         from './pages/student/PerfilPage';
 
 import { ComunidadeAdminPage } from './pages/admin/ComunidadeAdminPage';
 import { EnsinoAdminPage }     from './pages/admin/EnsinoAdminPage';
-import { AdminEvoluirPage }   from './pages/admin/AdminEvoluirPage';
-import { AdminConectarPage }  from './pages/admin/AdminConectarPage';
+import { AdminEvoluirRealPage } from './pages/admin/AdminEvoluirRealPage';
+import { AdminConectarRealPage } from './pages/admin/AdminConectarRealPage';
 import { AdminConsultarPage } from './pages/admin/AdminConsultarPage';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -68,8 +68,8 @@ export const router = createBrowserRouter([
       { index: true,           element: <Navigate to="/admin/comunidade" replace /> },
       { path: 'comunidade',    element: <ComunidadeAdminPage /> },
       { path: 'ensinar',       element: <EnsinoAdminPage />     },
-      { path: 'evoluir',       element: <AdminEvoluirPage />  },
-      { path: 'conectar',      element: <AdminConectarPage /> },
+      { path: 'evoluir',       element: <AdminEvoluirRealPage />  },
+      { path: 'conectar',      element: <AdminConectarRealPage /> },
       { path: 'consultar',     element: <AdminConsultarPage />},
     ],
   },

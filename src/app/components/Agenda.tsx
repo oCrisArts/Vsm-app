@@ -5,6 +5,9 @@ import {
   Clock, Edit3, CheckCircle2, User, Hash, X, Plus
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../context/AuthContext';
+import { useContacts } from '../../lib/hooks/useContacts';
+import type { Contact as StoredContact } from '../../lib/types';
 
 // ── Design tokens ──────────────────────────────────────────
 const BG      = '#121212';
@@ -28,7 +31,7 @@ const stageBadge: Record<Stage, { bg: string; text: string; label: string }> = {
 type Stage = 'Abridor Enviado' | 'Conversa Fluindo' | 'Conforto Estabelecido' | 'Encontro Solicitado';
 
 interface Contact {
-  id: number;
+  id: string;
   name: string;
   age: number;
   photo: string;
@@ -58,20 +61,11 @@ const stageProgress: Record<Stage, number> = {
 
 const STAGES: Stage[] = ['Abridor Enviado', 'Conversa Fluindo', 'Conforto Estabelecido', 'Encontro Solicitado'];
 
-const INITIAL_CONTACTS: Contact[] = [
-  { id: 1, name: 'Isabela', age: 24, photo: 'https://images.unsplash.com/photo-1621012649112-d1724740b0da?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Encontro Solicitado', progress: 88, platform: 'Tinder', lastContact: '1h atrás', notes: 'Adora café e yoga. Respondeu bem ao opener indireto. Gosta de arte contemporânea.', date: '2026-02-21', time: '20:00', location: 'Bar Astor' },
-  { id: 2, name: 'Camila', age: 26, photo: 'https://images.unsplash.com/photo-1749700332031-cf99864959ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Conforto Estabelecido', progress: 68, platform: 'Instagram', lastContact: '3h atrás', notes: 'Personal trainer. Gatilho: desafio e competição. Frame de abundância funcionou bem.' },
-  { id: 3, name: 'Fernanda', age: 23, photo: 'https://images.unsplash.com/photo-1630845175575-b5c2495cb409?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Conversa Fluindo', progress: 42, platform: 'Bumble', lastContact: 'Ontem', notes: 'Arquiteta, inteligente. Prefere conversas profundas. Evitar tópicos superficiais.' },
-  { id: 4, name: 'Larissa', age: 25, photo: 'https://images.unsplash.com/photo-1680520919302-29d5e104ba7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Conversa Fluindo', progress: 38, platform: 'Hinge', lastContact: '2h atrás', notes: 'Médica residente. Pouco tempo disponível. Responde melhor à noite.' },
-  { id: 5, name: 'Vitória', age: 22, photo: 'https://images.unsplash.com/photo-1762195020829-835d05d3ee80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Abridor Enviado', progress: 15, platform: 'Instagram', lastContact: 'Agora', notes: '' },
-  { id: 6, name: 'Rafaela', age: 27, photo: 'https://images.unsplash.com/photo-1732615578605-ed5ed7c2b9b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800', stage: 'Abridor Enviado', progress: 20, platform: 'Tinder', lastContact: '4h atrás', notes: '' },
-];
-
 const EMPTY_CONTACT: Contact = {
-  id: 0,
+  id: '',
   name: '',
   age: 18,
-  photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop',
+  photo: '',
   stage: 'Abridor Enviado',
   progress: 15,
   platform: 'Instagram',
@@ -83,7 +77,22 @@ const EMPTY_CONTACT: Contact = {
 /*  MAIN COMPONENT                                          */
 /* ───────────────────────────────────────────────────────── */
 export function Agenda() {
-  const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
+  const { user } = useAuth();
+  const { contacts: storedContacts, loading, saveContact } = useContacts(user?.id ?? null);
+  const contacts: Contact[] = storedContacts.map(contact => ({
+    id: contact.id,
+    name: contact.name,
+    age: contact.age ?? 0,
+    photo: contact.photo_url ?? '',
+    stage: contact.stage,
+    progress: stageProgress[contact.stage],
+    platform: contact.platform,
+    lastContact: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(contact.updated_at)),
+    notes: contact.notes,
+    date: contact.meeting_date ?? undefined,
+    time: contact.meeting_time ?? undefined,
+    location: contact.meeting_location ?? undefined,
+  }));
   const [selected, setSelected] = useState<Contact | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -111,7 +120,7 @@ export function Agenda() {
   };
 
   const cancelEdit = () => {
-    if (selected?.id === 0) {
+    if (selected?.id === '') {
       // If cancelling creation, go back
       back();
     } else {
@@ -120,18 +129,22 @@ export function Agenda() {
     }
   };
 
-  const saveMission = () => {
+  const saveMission = async () => {
     if (!draft) return;
-    const updated: Contact = {
-      ...draft,
-      progress: stageProgress[draft.stage],
-      id: draft.id === 0 ? Date.now() : draft.id,
-    };
-    
-    setContacts(prev => {
-      if (draft.id === 0) return [...prev, updated];
-      return prev.map(c => c.id === updated.id ? updated : c);
-    });
+    const result = await saveContact({
+      id: draft.id || undefined,
+      name: draft.name,
+      age: draft.age || null,
+      photo_url: draft.photo || null,
+      stage: draft.stage,
+      platform: draft.platform,
+      notes: draft.notes,
+      meeting_date: draft.date || null,
+      meeting_time: draft.time || null,
+      meeting_location: draft.location || null,
+    } as Partial<StoredContact> & { name: string });
+    if (result.error || !result.data) return;
+    const updated: Contact = { ...draft, id: result.data.id, progress: stageProgress[draft.stage], lastContact: 'Hoje' };
     
     setSelected(updated);
     setDraft({ ...updated });
@@ -177,6 +190,8 @@ export function Agenda() {
           CRM Social — Central De Missões
         </p>
       </div>
+
+      {loading && <div className="px-5 pb-5" style={{ color: TEXT3, fontSize: 13 }}>Carregando contatos...</div>}
 
       {/* PRÓXIMAS MISSÕES */}
       {scheduledDates.length > 0 && (

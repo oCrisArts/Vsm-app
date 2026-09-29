@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAllLearningContent } from '../../lib/hooks/useLearning';
 import { useProgress } from '../../lib/hooks/useProgress';
 import { useGamification } from '../../lib/hooks/useGamification';
+import { useBodyLogs, useDietLogs, useFinanceRecords } from '../../lib/hooks/useEvolution';
 
 // ── Design Tokens ──────────────────────────────────────────────
 const BG      = '#121212';
@@ -242,38 +243,8 @@ function HistoryView({
   );
 }
 
-// ── Mock initial data ─────────────────────────────────────────
-const INITIAL_WEIGHT_HISTORY = [
-  { date: '01/02', value: 80.0 },
-  { date: '05/02', value: 79.5 },
-  { date: '09/02', value: 79.0 },
-  { date: '14/02', value: 78.5 },
-  { date: '20/02', value: 78.1 },
-];
-const INITIAL_FAT_HISTORY = [
-  { date: '01/02', value: 16.2 },
-  { date: '05/02', value: 15.8 },
-  { date: '09/02', value: 15.2 },
-  { date: '14/02', value: 14.6 },
-  { date: '20/02', value: 14.2 },
-];
 const CALORIE_GOAL = 2500;
 const TODAY = new Date().toISOString().split('T')[0];
-
-function buildInitialCalLog(): { date: string; calories: number }[] {
-  const log = [];
-  for (let i = 30; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    // Simulate: met goal 65% of days
-    const met = Math.random() > 0.35;
-    log.push({ date: dateStr, calories: met ? Math.floor(2400 + Math.random() * 300) : Math.floor(1200 + Math.random() * 1000) });
-  }
-  return log;
-}
-
-const INITIAL_CAL_LOG = buildInitialCalLog();
 
 // ── Main Component ────────────────────────────────────────────
 interface EvolucaoProps { onSelectCourse: (slug: string) => void; }
@@ -283,6 +254,9 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   const { courses, loading: coursesLoading, error: coursesError } = useAllLearningContent();
   const { progress: learningProgress } = useProgress(user?.id ?? null);
   const { profile: gamificationProfile } = useGamification(user?.id ?? null);
+  const { addLog: addBodyLog, weightHistory, fatHistory } = useBodyLogs(user?.id ?? null);
+  const { addMeal: addDietMeal, todayCalories, caloriesByDay } = useDietLogs(user?.id ?? null);
+  const { current: currentFinance, upsertRecord: saveFinanceRecord } = useFinanceRecords(user?.id ?? null);
   const inProgressCourses = courses.filter(course => enrolledCourses.includes(course.id)).map(course => {
     const courseLessons = course.modules.flatMap(module => module.lessons);
     const done = courseLessons.filter(lesson => learningProgress.some(item => item.lesson_id === lesson.id)).length;
@@ -291,37 +265,28 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   const [activeTab, setActiveTab] = useState<'aprendendo' | 'corpo' | 'dieta' | 'financas'>('aprendendo');
 
   // ── Corpo state ──
-  const [weightHistory, setWeightHistory] = useState(INITIAL_WEIGHT_HISTORY);
-  const [fatHistory, setFatHistory] = useState(INITIAL_FAT_HISTORY);
   const [bodyView, setBodyView] = useState<'dashboard' | 'weight' | 'fat' | 'calories'>('dashboard');
   const [showRegisterSheet, setShowRegisterSheet] = useState(false);
   const [newWeight, setNewWeight] = useState('');
   const [newFat, setNewFat] = useState('');
 
-  const currentWeight = weightHistory[weightHistory.length - 1].value;
-  const currentFat = fatHistory[fatHistory.length - 1].value;
+  const currentWeight = weightHistory[weightHistory.length - 1]?.value ?? 0;
+  const currentFat = fatHistory[fatHistory.length - 1]?.value ?? 0;
+  const baselineWeight = weightHistory[0]?.value ?? currentWeight;
 
-  const saveBodyLog = () => {
-    const dateLabel = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    if (newWeight) {
-      setWeightHistory(h => [...h, { date: dateLabel, value: parseFloat(newWeight) }]);
-    }
-    if (newFat) {
-      setFatHistory(h => [...h, { date: dateLabel, value: parseFloat(newFat) }]);
-    }
+  const saveBodyLog = async () => {
+    await addBodyLog(newWeight ? parseFloat(newWeight) : null, newFat ? parseFloat(newFat) : null);
     setNewWeight('');
     setNewFat('');
     setShowRegisterSheet(false);
   };
 
   // ── Dieta state ──
-  const [calorieLog, setCalorieLog] = useState(INITIAL_CAL_LOG);
+  const calorieLog = [...caloriesByDay.entries()].map(([date, calories]) => ({ date, calories })).sort((a, b) => a.date.localeCompare(b.date));
   const [showAddMealSheet, setShowAddMealSheet] = useState(false);
   const [mealCalories, setMealCalories] = useState('');
   const [mealLabel, setMealLabel] = useState('');
 
-  const todayEntry = calorieLog.find(e => e.date === TODAY);
-  const todayCalories = todayEntry?.calories ?? 0;
   const calPercent = Math.min(100, Math.round((todayCalories / CALORIE_GOAL) * 100));
 
   // Streak calc
@@ -341,18 +306,10 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
 
   const streakXPMultiplier = streak >= 21 ? 3 : streak >= 14 ? 2.5 : streak >= 7 ? 2 : 1;
 
-  const addMeal = () => {
+  const addMeal = async () => {
     const cal = parseInt(mealCalories);
     if (!cal) return;
-    setCalorieLog(prev => {
-      const idx = prev.findIndex(e => e.date === TODAY);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], calories: updated[idx].calories + cal };
-        return updated;
-      }
-      return [...prev, { date: TODAY, calories: cal }];
-    });
+    await addDietMeal(cal, mealLabel || undefined);
     setMealCalories('');
     setMealLabel('');
     setShowAddMealSheet(false);
@@ -369,18 +326,17 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
   }));
 
   // ── Financas state ──
-  const [income, setIncome] = useState(8500);
-  const [expenses, setExpenses] = useState(4200);
+  const income = currentFinance?.income ?? 0;
+  const expenses = currentFinance?.expenses ?? 0;
   const [showFinanceSheet, setShowFinanceSheet] = useState<'income' | 'expense' | null>(null);
   const [financeInput, setFinanceInput] = useState('');
   const savings = income - expenses;
   const SAVINGS_GOAL = 10000;
 
-  const saveFinance = () => {
+  const saveFinance = async () => {
     const val = parseFloat(financeInput);
     if (!val) return;
-    if (showFinanceSheet === 'income') setIncome(val);
-    else if (showFinanceSheet === 'expense') setExpenses(val);
+    await saveFinanceRecord(showFinanceSheet === 'income' ? val : income, showFinanceSheet === 'expense' ? val : expenses);
     setFinanceInput('');
     setShowFinanceSheet(null);
   };
@@ -554,7 +510,7 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
             <div className="flex items-center justify-between px-2 mb-4">
               <p className="text-white" style={{ fontSize: 13, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>Evolução Do Peso</p>
               <span style={{ color: '#93C5FD', fontSize: 11, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-                {currentWeight < INITIAL_WEIGHT_HISTORY[0].value ? '↓' : '↑'} {Math.abs(currentWeight - INITIAL_WEIGHT_HISTORY[0].value).toFixed(1)} kg
+                {currentWeight < baselineWeight ? '↓' : '↑'} {Math.abs(currentWeight - baselineWeight).toFixed(1)} kg
               </span>
             </div>
             <div style={{ height: 140 }}>
@@ -580,7 +536,7 @@ export function Evolucao({ onSelectCourse }: EvolucaoProps) {
               <motion.div
                 style={{ height: '100%', backgroundColor: PRIMARY, borderRadius: 4 }}
                 initial={{ width: 0 }}
-                animate={{ width: `${Math.max(0, Math.min(100, (1 - (currentWeight - 72) / (INITIAL_WEIGHT_HISTORY[0].value - 72)) * 100))}%` }}
+                animate={{ width: `${baselineWeight === 72 ? 0 : Math.max(0, Math.min(100, (1 - (currentWeight - 72) / (baselineWeight - 72)) * 100))}%` }}
                 transition={{ duration: 0.8 }}
               />
             </div>

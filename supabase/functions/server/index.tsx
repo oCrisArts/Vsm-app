@@ -14,6 +14,15 @@ app.use("/*", cors({
   maxAge: 600,
 }));
 
+// This function is retained only for compatibility while the deployment is
+// retired. Production clients use the Supabase client with RLS directly.
+// Keep health available, but prevent the legacy service-role routes from
+// bypassing the table policies.
+app.use("/make-server-bbe832b4/*", async (c, next) => {
+  if (c.req.path === "/make-server-bbe832b4/health") return next();
+  return c.json({ error: "Legacy API retired" }, 410);
+});
+
 // ─── Supabase admin client ─────────────────────────────────────
 
 function adminClient() {

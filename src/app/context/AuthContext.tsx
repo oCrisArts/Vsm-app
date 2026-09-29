@@ -175,10 +175,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const markOnboardingDone = useCallback(async () => {
     if (!user) return;
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ onboarding_done: true })
       .eq('id', user.id);
+    if (error) throw error;
     setUser(u => u ? { ...u, onboardingDone: true } : null);
   }, [user]);
 
